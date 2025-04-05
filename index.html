@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube 統計トラッカー</title>
+  <link rel="stylesheet" href="public/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>YouTube 動画統計トラッカー</h1>
+    
+    <div class="form-container">
+      <form id="apiKeyForm">
+        <div class="input-group">
+          <input type="text" id="apiKey" placeholder="YouTube API キーを入力" required>
+          <button type="submit">APIキーを設定</button>
+        </div>
+        <div class="api-usage">
+          <span>API使用量: <span id="apiUsageCount">0</span> / 5,000,000</span>
+          <div class="api-usage-bar">
+            <div id="apiUsageBar" class="api-usage-progress"></div>
+          </div>
+        </div>
+      </form>
+    </div>
+    
+    <div id="videoFormContainer" class="form-container hidden">
+      <form id="videoForm">
+        <div class="input-group">
+          <input type="text" id="videoUrl" placeholder="YouTube動画のURLまたは動画ID" required>
+          <button type="submit" class="add-btn">追加</button>
+        </div>
+        <div class="mode-selector">
+          <label for="updateMode">更新モード:</label>
+          <select id="updateMode">
+            <option value="normal">通常 (30秒)</option>
+            <option value="realtime">リアルタイム (10秒)</option>
+            <option value="economy">節約 (60秒)</option>
+          </select>
+        </div>
+      </form>
+    </div>
+    
+    <!-- 動画リスト -->
+    <div id="videoListContainer" class="video-list-container hidden">
+      <h3>トラッキング中の動画</h3>
+      <div id="videoList" class="video-list"></div>
+    </div>
+    
+    <div id="videoInfo" class="hidden">
+      <div class="video-header">
+        <div class="thumbnail-container">
+          <img id="thumbnail" src="" alt="サムネイル">
+        </div>
+        <div class="video-details">
+          <h2 id="videoTitle"></h2>
+          <p>動画ID: <span id="videoIdDisplay"></span></p>
+          <button id="stopTracking" class="small-btn">トラッキング停止</button>
+        </div>
+      </div>
+    </div>
+    
+    <div id="statsContainer" class="hidden">
+      <div class="current-stats">
+        <div class="stat-card">
+          <h3>現在の再生回数</h3>
+          <div id="currentViews" class="stat-value counter-animation">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>現在の高評価数</h3>
+          <div id="currentLikes" class="stat-value counter-animation">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>現在のコメント数</h3>
+          <div id="currentComments" class="stat-value counter-animation">-</div>
+        </div>
+      </div>
+      
+      <div class="average-stats">
+        <div class="stat-card average-card">
+          <h3>1時間の増加率</h3>
+          <div class="avg-stats-grid">
+            <div>
+              <span class="label">再生回数</span>
+              <span id="viewsHourly" class="avg-value">-</span>
+            </div>
+            <div>
+              <span class="label">高評価</span>
+              <span id="likesHourly" class="avg-value">-</span>
+            </div>
+            <div>
+              <span class="label">コメント</span>
+              <span id="commentsHourly" class="avg-value">-</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="stat-card average-card">
+          <h3>24時間の増加率</h3>
+          <div class="avg-stats-grid">
+            <div>
+              <span class="label">再生回数</span>
+              <span id="viewsDaily" class="avg-value">-</span>
+            </div>
+            <div>
+              <span class="label">高評価</span>
+              <span id="likesDaily" class="avg-value">-</span>
+            </div>
+            <div>
+              <span class="label">コメント</span>
+              <span id="commentsDaily" class="avg-value">-</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="stat-card average-card">
+          <h3>週間の増加率</h3>
+          <div class="avg-stats-grid">
+            <div>
+              <span class="label">再生回数</span>
+              <span id="viewsWeekly" class="avg-value">-</span>
+            </div>
+            <div>
+              <span class="label">高評価</span>
+              <span id="likesWeekly" class="avg-value">-</span>
+            </div>
+            <div>
+              <span class="label">コメント</span>
+              <span id="commentsWeekly" class="avg-value">-</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="charts-container">
+        <div class="chart-wrapper">
+          <h3>再生回数の推移</h3>
+          <canvas id="viewsChart"></canvas>
+        </div>
+        <div class="chart-wrapper">
+          <h3>高評価数の推移</h3>
+          <canvas id="likesChart"></canvas>
+        </div>
+        <div class="chart-wrapper">
+          <h3>コメント数の推移</h3>
+          <canvas id="commentsChart"></canvas>
+        </div>
+      </div>
+    </div>
+    
+    <div id="errorMessage" class="error hidden"></div>
+  </div>
+  
+  <!-- 動画アイテムのテンプレート -->
+  <template id="videoItemTemplate">
+    <div class="video-item">
+      <div class="video-item-thumbnail">
+        <img src="" alt="">
+      </div>
+      <div class="video-item-info">
+        <div class="video-item-title"></div>
+        <div class="video-item-stats">
+          <span class="views"></span> 再生
+        </div>
+      </div>
+      <button class="view-btn small-btn">表示</button>
+      <button class="remove-btn small-btn">削除</button>
+    </div>
+  </template>
+  
+  <script src="public/js/counter-animation.js"></script>
+  <script src="public/js/chart.js"></script>
+  <script src="public/js/main.js"></script>
+</body>
+</html>
