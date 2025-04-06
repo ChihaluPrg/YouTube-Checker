@@ -57,7 +57,17 @@
         <div class="video-details">
           <h2 id="videoTitle"></h2>
           <p>動画ID: <span id="videoIdDisplay"></span></p>
-          <button id="stopTracking" class="small-btn">トラッキング停止</button>
+          <div class="video-actions">
+            <div class="mode-selector video-mode-selector">
+              <label for="videoUpdateMode">更新頻度:</label>
+              <select id="videoUpdateMode">
+                <option value="normal">通常 (30秒)</option>
+                <option value="realtime">リアルタイム (10秒)</option>
+                <option value="economy">節約 (60秒)</option>
+              </select>
+            </div>
+            <button id="stopTracking" class="small-btn">トラッキング停止</button>
+          </div>
         </div>
       </div>
     </div>
@@ -136,16 +146,31 @@
       
       <div class="charts-container">
         <div class="chart-wrapper">
-          <h3>再生回数の推移</h3>
-          <canvas id="viewsChart"></canvas>
+          <div class="chart-header">
+            <h3>再生回数の推移</h3>
+            <button class="export-btn small-btn" data-chart="views">書き出し</button>
+          </div>
+          <div class="chart-container">
+            <canvas id="viewsChart"></canvas>
+          </div>
         </div>
         <div class="chart-wrapper">
-          <h3>高評価数の推移</h3>
-          <canvas id="likesChart"></canvas>
+          <div class="chart-header">
+            <h3>高評価数の推移</h3>
+            <button class="export-btn small-btn" data-chart="likes">書き出し</button>
+          </div>
+          <div class="chart-container">
+            <canvas id="likesChart"></canvas>
+          </div>
         </div>
         <div class="chart-wrapper">
-          <h3>コメント数の推移</h3>
-          <canvas id="commentsChart"></canvas>
+          <div class="chart-header">
+            <h3>コメント数の推移</h3>
+            <button class="export-btn small-btn" data-chart="comments">書き出し</button>
+          </div>
+          <div class="chart-container">
+            <canvas id="commentsChart"></canvas>
+          </div>
         </div>
       </div>
     </div>

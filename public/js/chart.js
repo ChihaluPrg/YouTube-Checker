@@ -319,4 +319,53 @@ class StatsCharts {
       timestamps: [...this.viewsData.labels]
     };
   }
+  
+  // 月間表示用のデータ調整 (新規追加)
+  prepareMonthlyData(history, dataType) {
+    if (!history || history.length === 0) return { labels: [], values: [] };
+    
+    // 日付ごとにデータをグループ化
+    const dailyData = {};
+    
+    history.forEach(entry => {
+      const date = new Date(entry.timestamp);
+      const dateKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+      
+      let value = 0;
+      switch (dataType) {
+        case 'views':
+          value = entry.viewCount;
+          break;
+        case 'likes':
+          value = entry.likeCount;
+          break;
+        case 'comments':
+          value = entry.commentCount;
+          break;
+      }
+      
+      // その日のデータを最新のもので更新
+      if (!dailyData[dateKey] || new Date(entry.timestamp) > new Date(dailyData[dateKey].timestamp)) {
+        dailyData[dateKey] = {
+          value: value,
+          timestamp: entry.timestamp
+        };
+      }
+    });
+    
+    // 日付でソートしたデータに変換
+    const sortedDates = Object.keys(dailyData).sort();
+    const values = sortedDates.map(date => dailyData[date].value);
+    
+    // ラベルを日付フォーマットに変換（MM/DD）
+    const labels = sortedDates.map(dateStr => {
+      const date = new Date(dateStr);
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    });
+    
+    return {
+      labels: labels,
+      values: values
+    };
+  }
 }

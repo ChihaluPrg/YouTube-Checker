@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const videoListContainer = document.getElementById('videoListContainer');
   const videoList = document.getElementById('videoList');
   const videoItemTemplate = document.getElementById('videoItemTemplate');
+  const videoUpdateMode = document.getElementById('videoUpdateMode');
+  const exportButtons = document.querySelectorAll('.export-btn');
   
   // 平均値表示要素
   const viewsHourly = document.getElementById('viewsHourly');
@@ -65,6 +67,9 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // グラフ管理インスタンス
   const charts = new StatsCharts();
+  
+  // 選択されている更新モード
+  let currentUpdateMode = 'normal';
   
   // API使用量制限に関する関数を追加
   function resetApiCounterIfNeeded() {
@@ -164,10 +169,32 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // API使用量カウンターのリセット確認
       resetApiCounterIfNeeded();
+      
+      // 更新モード選択のイベントリスナーを追加
+      videoUpdateMode.addEventListener('change', handleUpdateModeChange);
+      
+      // 書き出しボタンのイベントリスナーを追加
+      setupExportButtons();
     } catch (error) {
       console.error('Error initializing page:', error);
       showError('ページの初期化中にエラーが発生しました');
     }
+  }
+  
+  // 書き出しボタンのイベントリスナーをセットアップ
+  function setupExportButtons() {
+    // すべての書き出しボタン要素を取得して再設定
+    const exportButtons = document.querySelectorAll('.export-btn');
+    console.log('書き出しボタン数:', exportButtons.length);
+    
+    exportButtons.forEach(button => {
+      // 既存のイベントリスナーを削除（重複防止）
+      button.removeEventListener('click', handleExportChart);
+      
+      // 新しいイベントリスナーを追加
+      button.addEventListener('click', handleExportChart);
+      console.log('書き出しボタンにイベントリスナーを設定:', button.getAttribute('data-chart'));
+    });
   }
   
   // カウンターアニメーションの初期化を別関数に分離
@@ -453,6 +480,9 @@ document.addEventListener('DOMContentLoaded', () => {
       // 統計データをロード
       loadVideoStats(video);
       
+      // 更新モード選択を更新
+      updateModeSelectorDisplay(videoId);
+      
       // 監視が開始されていなければ開始
       if (!intervalIds[videoId]) {
         startTracking(videoId);
@@ -511,8 +541,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
-  // 動画監視開始 - 節約モード対応
-  function startTracking(videoId, economyMode = false) {
+  // 動画監視開始 - 更新間隔を指定可能に
+  function startTracking(videoId, economyMode = false, customInterval = null) {
     // 既存の監視を停止
     stopTracking(videoId);
     
@@ -522,13 +552,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // 更新間隔の決定
-    let interval = UPDATE_INTERVAL;
+    let interval = customInterval || UPDATE_INTERVAL;
     
     // API使用量に基づいて更新間隔を調整
     if (economyMode) {
       interval = ECONOMY_UPDATE_INTERVAL;
       console.log(`Economy mode: Setting update interval to ${interval}ms for video ${videoId}`);
     }
+    
+    // 選択された更新モードを表示
+    updateModeSelectorDisplay(videoId);
     
     // 統計情報を更新
     intervalIds[videoId] = setInterval(async () => {
@@ -538,6 +571,21 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('Error updating stats:', error);
       }
     }, interval);
+  }
+  
+  // 更新モード選択UIを更新
+  function updateModeSelectorDisplay(videoId) {
+    const video = trackedVideos.find(v => v.videoId === videoId);
+    if (!video) return;
+    
+    // 保存されている更新モードを取得
+    const savedMode = video.updateMode || 'normal';
+    
+    // 更新モード選択を更新
+    if (videoUpdateMode) {
+      videoUpdateMode.value = savedMode;
+      currentUpdateMode = savedMode;
+    }
   }
   
   // 動画統計を更新 - 履歴の最適化
@@ -610,6 +658,8 @@ document.addEventListener('DOMContentLoaded', () => {
       // グラフをリセット
       try {
         charts.initCharts();
+        // グラフ初期化後に書き出しボタンのイベントリスナーを再設定
+        setupExportButtons();
       } catch (chartError) {
         console.error('Error initializing charts:', chartError);
         showError('グラフの初期化中にエラーが発生しました');
@@ -832,5 +882,315 @@ document.addEventListener('DOMContentLoaded', () => {
   // 数値のフォーマット
   function formatNumber(num) {
     return new Intl.NumberFormat('ja-JP').format(num);
+  }
+  
+  // 更新モード変更処理
+  function handleUpdateModeChange(e) {
+    if (!currentVideoId) return;
+    
+    const mode = e.target.value;
+    currentUpdateMode = mode;
+    console.log(`Changing update mode to ${mode} for video ${currentVideoId}`);
+    
+    // 動画の更新間隔を変更
+    switch(mode) {
+      case 'realtime':
+        startTracking(currentVideoId, false, REALTIME_UPDATE_INTERVAL);
+        break;
+      case 'economy':
+        startTracking(currentVideoId, true, ECONOMY_UPDATE_INTERVAL);
+        break;
+      case 'normal':
+      default:
+        startTracking(currentVideoId, false, UPDATE_INTERVAL);
+        break;
+    }
+    
+    // 動画のメタデータに更新モードを保存
+    const videoIndex = trackedVideos.findIndex(v => v.videoId === currentVideoId);
+    if (videoIndex !== -1) {
+      trackedVideos[videoIndex].updateMode = mode;
+      saveTrackedVideos();
+    }
+  }
+  
+  // グラフ書き出し処理
+  function handleExportChart(e) {
+    console.log('書き出しボタンがクリックされました');
+    const chartType = e.target.getAttribute('data-chart');
+    console.log('グラフタイプ:', chartType);
+    
+    if (!chartType || !currentVideoId) {
+      console.error('グラフタイプまたは動画IDが見つかりません');
+      return;
+    }
+    
+    // 現在表示中の動画情報を取得
+    const video = trackedVideos.find(v => v.videoId === currentVideoId);
+    if (!video) return;
+    
+    // 1ヶ月表示のデータを準備
+    const monthlyData = prepareMonthlyData(video.history, chartType);
+    
+    // 書き出しダイアログ生成
+    createExportDialog(charts[`${chartType}ChartInstance`], monthlyData, chartType, video.title);
+  }
+  
+  // 書き出しダイアログを作成
+  function createExportDialog(chartInstance, monthlyData, chartType, videoTitle) {
+    // 既存のダイアログがあれば削除
+    const existingDialog = document.querySelector('.export-dialog');
+    if (existingDialog) {
+      existingDialog.remove();
+    }
+    
+    // ダイアログ要素を作成
+    const dialog = document.createElement('div');
+    dialog.className = 'export-dialog';
+    
+    // ダイアログコンテンツ
+    dialog.innerHTML = `
+      <div class="export-dialog-content">
+        <h3>${getChartTitle(chartType)}の書き出し</h3>
+        <div class="export-options">
+          <label>
+            <input type="radio" name="export-period" value="current" checked> 現在の表示
+          </label>
+          <label>
+            <input type="radio" name="export-period" value="month"> 1ヶ月間のデータ
+          </label>
+        </div>
+        <div class="export-preview"></div>
+        <div class="export-dialog-buttons">
+          <button class="cancel-btn small-btn">キャンセル</button>
+          <button class="download-btn small-btn">ダウンロード</button>
+        </div>
+      </div>
+    `;
+    
+    // ダイアログをページに追加
+    document.body.appendChild(dialog);
+    
+    // プレビュー要素
+    const previewContainer = dialog.querySelector('.export-preview');
+    
+    // 現在のグラフをプレビューとして表示
+    const currentImage = chartInstance.toBase64Image();
+    const previewImg = document.createElement('img');
+    previewImg.src = currentImage;
+    previewContainer.appendChild(previewImg);
+    
+    // オプション切り替え
+    const periodOptions = dialog.querySelectorAll('input[name="export-period"]');
+    periodOptions.forEach(option => {
+      option.addEventListener('change', (e) => {
+        if (e.target.value === 'current') {
+          // 現在の表示をプレビュー
+          previewImg.src = chartInstance.toBase64Image();
+        } else if (e.target.value === 'month') {
+          // 1ヶ月データのグラフをプレビュー
+          const monthlyChartImage = generateMonthlyChart(monthlyData, chartType, videoTitle);
+          previewImg.src = monthlyChartImage;
+        }
+      });
+    });
+    
+    // キャンセルボタン
+    const cancelBtn = dialog.querySelector('.cancel-btn');
+    cancelBtn.addEventListener('click', () => {
+      dialog.remove();
+    });
+    
+    // ダウンロードボタン
+    const downloadBtn = dialog.querySelector('.download-btn');
+    downloadBtn.addEventListener('click', () => {
+      // 選択された期間のオプションを取得
+      const selectedPeriod = dialog.querySelector('input[name="export-period"]:checked').value;
+      let imageUrl;
+      
+      if (selectedPeriod === 'current') {
+        imageUrl = chartInstance.toBase64Image();
+      } else if (selectedPeriod === 'month') {
+        imageUrl = generateMonthlyChart(monthlyData, chartType, videoTitle);
+      }
+      
+      // 画像をダウンロード
+      const link = document.createElement('a');
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      link.download = `${videoTitle}-${getChartTitle(chartType)}-${timestamp}.png`;
+      link.href = imageUrl;
+      link.click();
+      
+      // ダイアログを閉じる
+      dialog.remove();
+    });
+    
+    // 背景クリックでダイアログを閉じる
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) {
+        dialog.remove();
+      }
+    });
+  }
+  
+  // 1ヶ月間のデータを準備
+  function prepareMonthlyData(history, chartType) {
+    if (!history || history.length < 2) return null;
+    
+    // 最新のデータから30日前まで
+    const latest = history[history.length - 1];
+    const latestDate = new Date(latest.timestamp);
+    const thirtyDaysAgo = new Date(latestDate);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    // 日付ごとにデータをグループ化
+    const dailyData = {};
+    
+    history.forEach(entry => {
+      const entryDate = new Date(entry.timestamp);
+      
+      // 30日以内のデータのみ処理
+      if (entryDate >= thirtyDaysAgo) {
+        // 日付ごとのキーを作成 (YYYY-MM-DD)
+        const dateKey = entryDate.toISOString().split('T')[0];
+        
+        // 日付ごとのデータを集計
+        if (!dailyData[dateKey]) {
+          dailyData[dateKey] = {
+            date: dateKey,
+            viewCount: entry.viewCount,
+            likeCount: entry.likeCount,
+            commentCount: entry.commentCount,
+            count: 1
+          };
+        } else {
+          // その日に複数のデータポイントがある場合は最新のものを使用
+          if (new Date(entry.timestamp) > new Date(dailyData[dateKey].timestamp || 0)) {
+            dailyData[dateKey].viewCount = entry.viewCount;
+            dailyData[dateKey].likeCount = entry.likeCount;
+            dailyData[dateKey].commentCount = entry.commentCount;
+            dailyData[dateKey].timestamp = entry.timestamp;
+          }
+        }
+      }
+    });
+    
+    // 日付でソートした配列に変換
+    const sortedData = Object.values(dailyData).sort((a, b) => a.date.localeCompare(b.date));
+    
+    return sortedData;
+  }
+  
+  // 1ヶ月表示のグラフを生成
+  function generateMonthlyChart(monthlyData, chartType, videoTitle) {
+    if (!monthlyData || monthlyData.length === 0) {
+      showError('1ヶ月分のデータがありません');
+      return null;
+    }
+    
+    // データを取得
+    const dates = monthlyData.map(d => formatDate(d.date));
+    let values;
+    let chartTitle;
+    let color;
+    
+    switch(chartType) {
+      case 'views':
+        values = monthlyData.map(d => d.viewCount);
+        chartTitle = '再生回数の月間推移';
+        color = 'rgb(255, 99, 132)';
+        break;
+      case 'likes':
+        values = monthlyData.map(d => d.likeCount);
+        chartTitle = '高評価数の月間推移';
+        color = 'rgb(54, 162, 235)';
+        break;
+      case 'comments':
+        values = monthlyData.map(d => d.commentCount);
+        chartTitle = 'コメント数の月間推移';
+        color = 'rgb(75, 192, 192)';
+        break;
+      default:
+        return null;
+    }
+    
+    // 一時的なキャンバスを作成
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = 800;
+    tempCanvas.height = 400;
+    document.body.appendChild(tempCanvas);
+    
+    // グラフを描画
+    const ctx = tempCanvas.getContext('2d');
+    const monthlyChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: dates,
+        datasets: [{
+          label: chartTitle,
+          data: values,
+          borderColor: color,
+          backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
+          borderWidth: 2,
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: false,
+        plugins: {
+          title: {
+            display: true,
+            text: `${videoTitle} - ${chartTitle}`,
+            font: {
+              size: 16
+            }
+          },
+          legend: {
+            display: false
+          }
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: '日付'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: getChartTitle(chartType)
+            },
+            beginAtZero: false
+          }
+        }
+      }
+    });
+    
+    // グラフの画像を生成
+    const image = monthlyChart.toBase64Image();
+    
+    // 一時キャンバスを削除
+    monthlyChart.destroy();
+    document.body.removeChild(tempCanvas);
+    
+    return image;
+  }
+  
+  // 日付のフォーマット (YYYY-MM-DD -> MM/DD)
+  function formatDate(dateString) {
+    const date = new Date(dateString);
+    return `${date.getMonth() + 1}/${date.getDate()}`;
+  }
+  
+  // グラフタイトルを取得
+  function getChartTitle(chartType) {
+    switch(chartType) {
+      case 'views': return '再生回数';
+      case 'likes': return '高評価数';
+      case 'comments': return 'コメント数';
+      default: return '';
+    }
   }
 });

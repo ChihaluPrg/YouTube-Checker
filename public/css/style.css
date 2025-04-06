@@ -143,31 +143,58 @@ button:hover {
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   width: 100%;
-  height: 300px; /* 高さを固定 */
-  max-height: 300px; /* 最大高さも固定 */
-  overflow: hidden; /* はみ出した内容を隠す */
-  position: relative; /* 子要素の配置の基準 */
+  height: auto; /* 高さを自動に変更 */
+  position: relative;
 }
 
-.chart-wrapper canvas {
-  position: absolute; /* 親要素内で絶対配置 */
-  top: 0;
-  left: 0;
+/* チャートヘッダー部分 */
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  position: relative;
+  z-index: 10; /* ヘッダーを前面に */
+}
+
+/* チャートコンテナ（キャンバス要素を囲む） */
+.chart-container {
+  height: 300px;
+  width: 100%;
+  position: relative;
+}
+
+/* キャンバス要素のスタイル調整 */
+.chart-container canvas {
   width: 100% !important;
   height: 100% !important;
-  padding: 1.5rem; /* 内側の余白 */
+}
+
+/* 書き出しボタンのスタイル調整 */
+.export-btn {
+  background-color: #3498db;
+  position: relative;
+  z-index: 20; /* ボタンを最前面に */
+}
+
+.export-btn:hover {
+  background-color: #2980b9;
+  cursor: pointer; /* カーソルをポインターに */
 }
 
 /* 大きな画面でグラフを横並びに */
 @media (min-width: 1000px) {
   .chart-wrapper {
-    height: 350px; /* 大画面では少し高く */
     width: calc(50% - 0.75rem); /* 2つ並びで表示 */
   }
   
   /* コメント数グラフは1行で表示 */
   .chart-wrapper:last-child {
     width: 100%;
+  }
+  
+  .chart-container {
+    height: 350px; /* 大画面では少し高く */
   }
 }
 
@@ -202,6 +229,10 @@ button:hover {
   }
   
   .chart-wrapper {
+    height: 250px; /* モバイルでは低く */
+  }
+  
+  .chart-container {
     height: 250px; /* モバイルでは低く */
   }
 }
@@ -430,6 +461,89 @@ button:hover {
   border: 1px solid #ddd;
 }
 
+/* 動画詳細の更新モード選択 */
+.video-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.video-mode-selector {
+  margin-top: 0;
+}
+
+/* グラフヘッダー */
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.export-btn {
+  background-color: #3498db;
+}
+
+.export-btn:hover {
+  background-color: #2980b9;
+}
+
+/* 書き出しダイアログ */
+.export-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.export-dialog-content {
+  background-color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.export-dialog h3 {
+  margin-bottom: 1rem;
+  text-align: center;
+  color: #333;
+}
+
+.export-dialog-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1.5rem;
+}
+
+.export-dialog-buttons button {
+  padding: 0.5rem 1rem;
+}
+
+.export-preview {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  max-height: 400px;
+  overflow: auto;
+}
+
+.export-preview img {
+  max-width: 100%;
+  height: auto;
+}
+
 /* レスポンシブ対応 */
 @media (max-width: 768px) {
   .input-group {
@@ -461,6 +575,10 @@ button:hover {
   }
   
   .chart-wrapper {
+    height: 250px; /* モバイルでは低く */
+  }
+  
+  .chart-container {
     height: 250px; /* モバイルでは低く */
   }
 }
