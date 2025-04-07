@@ -284,7 +284,7 @@ class StatsCharts {
       dataSet.labels.push(label);
       dataSet.values.push(value);
       
-      // データポイントの上限を超えたら古いデータを削除
+      // グラフ表示用のデータポイントの上限のみを制限
       if (dataSet.labels.length > this.maxDataPoints) {
         dataSet.labels.shift();
         dataSet.values.shift();

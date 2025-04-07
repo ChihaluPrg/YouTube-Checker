@@ -60,7 +60,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const CACHE_DURATION = 60000; // 1分間
   
   // グラフの最大データポイント数
-  const MAX_DATA_POINTS = 20;
+  const MAX_DATA_POINTS = 20; // グラフ表示用
+  
+  // 履歴保持の最大データポイント数（増加率計算用に増やす）
+  const MAX_HISTORY_POINTS = 2000; // 履歴データ保持用
   
   // カウンターアニメーション
   let counters = null;
@@ -612,9 +615,12 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       
       // 履歴が長すぎる場合は古いデータを削除
-      if (freshData.history.length > MAX_DATA_POINTS) {
-        freshData.history = freshData.history.slice(-MAX_DATA_POINTS);
+      if (freshData.history.length > MAX_HISTORY_POINTS) {
+        freshData.history = freshData.history.slice(-MAX_HISTORY_POINTS);
       }
+      
+      // 更新モードを保持
+      freshData.updateMode = trackedVideos[videoIndex].updateMode || 'normal';
       
       // 更新した動画情報で置き換え
       trackedVideos[videoIndex] = freshData;
@@ -729,9 +735,16 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
-    const history = video.history;
+    // 履歴を日時でソート
+    const history = [...video.history].sort((a, b) => {
+      return new Date(a.timestamp) - new Date(b.timestamp);
+    });
+    
     const latest = history[history.length - 1];
     const now = new Date(latest.timestamp);
+    
+    console.log(`計算: 最新データ時間 ${now.toLocaleString()}`);
+    console.log(`計算: 履歴データ数 ${history.length}件`);
     
     // 1時間前のデータを検索
     const oneHourAgo = new Date(now);
@@ -747,11 +760,18 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 最も古いエントリの時間
     const oldestEntryTime = new Date(history[0].timestamp);
+    console.log(`計算: 最古のデータ時間 ${oldestEntryTime.toLocaleString()}`);
     
     // 1時間の増加率 (1時間以上のデータがある場合)
+    const hourlyDiff = now - oneHourAgo;
+    console.log(`計算: 1時間前 = ${oneHourAgo.toLocaleString()}, 差分 ${Math.round(hourlyDiff / (1000 * 60))}分`);
+    
+    // 最も新しいデータから見て1時間以上のデータがあるか
     if (oldestEntryTime <= oneHourAgo) {
-      const hourlyData = findClosestDataPoint(history, oneHourAgo);
+      const hourlyData = findBestDataPointBefore(history, oneHourAgo);
       if (hourlyData) {
+        console.log(`計算: 1時間前のデータ ${new Date(hourlyData.timestamp).toLocaleString()}`);
+        
         const viewsDiff = latest.viewCount - hourlyData.viewCount;
         const likesDiff = latest.likeCount - hourlyData.likeCount;
         const commentsDiff = latest.commentCount - hourlyData.commentCount;
@@ -759,6 +779,8 @@ document.addEventListener('DOMContentLoaded', () => {
         viewsHourly.textContent = formatChangeRate(viewsDiff);
         likesHourly.textContent = formatChangeRate(likesDiff);
         commentsHourly.textContent = formatChangeRate(commentsDiff);
+      } else {
+        resetHourlyAverages();
       }
     } else {
       // 十分なデータがない場合
@@ -766,9 +788,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // 日次増加率 (24時間以内のデータがある場合)
+    const dailyDiff = now - oneDayAgo;
+    console.log(`計算: 24時間前 = ${oneDayAgo.toLocaleString()}, 差分 ${Math.round(dailyDiff / (1000 * 60 * 60))}時間`);
+    
     if (oldestEntryTime <= oneDayAgo) {
-      const dailyData = findClosestDataPoint(history, oneDayAgo);
+      const dailyData = findBestDataPointBefore(history, oneDayAgo);
       if (dailyData) {
+        console.log(`計算: 24時間前のデータ ${new Date(dailyData.timestamp).toLocaleString()}`);
+        
         const viewsDiff = latest.viewCount - dailyData.viewCount;
         const likesDiff = latest.likeCount - dailyData.likeCount;
         const commentsDiff = latest.commentCount - dailyData.commentCount;
@@ -776,6 +803,8 @@ document.addEventListener('DOMContentLoaded', () => {
         viewsDaily.textContent = formatChangeRate(viewsDiff);
         likesDaily.textContent = formatChangeRate(likesDiff);
         commentsDaily.textContent = formatChangeRate(commentsDiff);
+      } else {
+        resetDailyAverages();
       }
     } else {
       // 十分なデータがない場合
@@ -783,9 +812,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // 週間増加率 (1週間以内のデータがある場合)
+    const weeklyDiff = now - oneWeekAgo;
+    console.log(`計算: 1週間前 = ${oneWeekAgo.toLocaleString()}, 差分 ${Math.round(weeklyDiff / (1000 * 60 * 60 * 24))}日`);
+    
     if (oldestEntryTime <= oneWeekAgo) {
-      const weeklyData = findClosestDataPoint(history, oneWeekAgo);
+      const weeklyData = findBestDataPointBefore(history, oneWeekAgo);
       if (weeklyData) {
+        console.log(`計算: 1週間前のデータ ${new Date(weeklyData.timestamp).toLocaleString()}`);
+        
         const viewsDiff = latest.viewCount - weeklyData.viewCount;
         const likesDiff = latest.likeCount - weeklyData.likeCount;
         const commentsDiff = latest.commentCount - weeklyData.commentCount;
@@ -793,6 +827,8 @@ document.addEventListener('DOMContentLoaded', () => {
         viewsWeekly.textContent = formatChangeRate(viewsDiff);
         likesWeekly.textContent = formatChangeRate(likesDiff);
         commentsWeekly.textContent = formatChangeRate(commentsDiff);
+      } else {
+        resetWeeklyAverages();
       }
     } else {
       // 十分なデータがない場合
@@ -800,28 +836,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
+  // 指定時間より前の最も新しいデータポイントを見つける (改善版)
+  function findBestDataPointBefore(history, targetDate) {
+    // 指定時間以前のデータポイントをフィルタリング
+    const olderPoints = history.filter(entry => new Date(entry.timestamp) <= targetDate);
+    
+    if (olderPoints.length === 0) {
+      return null;
+    }
+    
+    // 指定時間以前で最も新しいデータポイントを返す
+    return olderPoints.reduce((newest, current) => {
+      const currentTime = new Date(current.timestamp);
+      const newestTime = new Date(newest.timestamp);
+      return currentTime > newestTime ? current : newest;
+    }, olderPoints[0]);
+  }
+  
   // 数値の変化率のフォーマット（正の値には「+」を追加）
   function formatChangeRate(value) {
     const sign = value >= 0 ? '+' : '';
     return `${sign}${formatNumber(value)}`;
-  }
-  
-  // 特定の時間に最も近いデータポイントを見つける
-  function findClosestDataPoint(history, targetDate) {
-    let closest = null;
-    let closestDiff = Infinity;
-    
-    for (const entry of history) {
-      const entryDate = new Date(entry.timestamp);
-      const diff = Math.abs(entryDate - targetDate);
-      
-      if (diff < closestDiff) {
-        closestDiff = diff;
-        closest = entry;
-      }
-    }
-    
-    return closest;
   }
   
   // 1時間平均表示をリセット

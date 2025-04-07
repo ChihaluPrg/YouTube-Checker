@@ -375,6 +375,17 @@ button:hover {
   font-size: 1.2rem;
   font-weight: bold;
   color: #cc0000;
+  display: inline-block;
+  min-width: 60px;
+  text-align: right;
+}
+
+.avg-value.positive {
+  color: #4CAF50;
+}
+
+.avg-value.negative {
+  color: #F44336;
 }
 
 /* カウンターアニメーション */
@@ -542,6 +553,34 @@ button:hover {
 .export-preview img {
   max-width: 100%;
   height: auto;
+}
+
+/* デバッグ情報 */
+.debug-container {
+  background-color: white;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.debug-container summary {
+  cursor: pointer;
+  font-weight: bold;
+  color: #666;
+  padding: 0.5rem 0;
+}
+
+.debug-info {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 0.5rem;
+  border-top: 1px solid #eee;
+  padding-top: 0.5rem;
+}
+
+.debug-info p {
+  margin: 0.3rem 0;
 }
 
 /* レスポンシブ対応 */
